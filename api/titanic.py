@@ -1,101 +1,65 @@
-## Python Titanic Model
-# Import the required libraries
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import OneHotEncoder
-import pandas as pd
+from flask import Blueprint, jsonify, Flask, request
 import seaborn as sns
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.preprocessing import OneHotEncoder
+from flask_restful import Api, Resource
+from sklearn.linear_model import LogisticRegression
 
-# Define the TitanicRegression global variable
-titanic_regression = None
-# Define the TitanicRegression class
-class TitanicRegression:
-    def __init__(self):
-        self.dt = None
-        self.logreg = None
-        self.X_train = None
-        self.X_test = None
-        self.y_train = None
-        self.y_test = None
-        self.encoder = None
+app = Flask(__name__)
+titanic_api = Blueprint('titanic_api', __name__, url_prefix='/api/titanic')
+api = Api(titanic_api)
 
-    def initTitanic(self):
-        titanic_data = sns.load_dataset('titanic')
-        X = titanic_data.drop('survived', axis=1)
-        y = titanic_data['survived']
-        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+class Predict(Resource):
+    def post(self):
+        try:
+            data = request.get_json()
+            passenger_data = pd.DataFrame(data, index=[0])
+            
+            # Preprocesssing
+            passenger_data['sex'] = passenger_data['sex'].apply(lambda x: 1 if x == 'male' else 0)
+            passenger_data['alone'] = passenger_data['alone'].apply(lambda x: 1 if x == True else 0)
+            onehot = enc.transform(passenger_data[['embarked']]).toarray()
+            cols = ['embarked_' + val for val in enc.categories_[0]]
+            passenger_data[cols] = pd.DataFrame(onehot)
+            passenger_data.drop(['embarked'], axis=1, inplace=True)
+            
+            # Predict the survival probability for the new passenger
+            survival_prob = logreg.predict_proba(passenger_data)[:, 1]
+            death_prob = 1 - survival_prob
 
-        # Initialize the encoder
-        self.encoder = OneHotEncoder(handle_unknown='ignore')
-        self.X_train = self.encoder.fit_transform(self.X_train)
-        self.X_test = self.encoder.transform(self.X_test)
+            return {'death_percentage': float(death_prob * 100), 'survivability_percentage': float(survival_prob * 100)}, 200
+        except Exception as e:
+            return {'error': str(e)}, 400
 
-        self.dt = DecisionTreeClassifier()
-        self.dt.fit(self.X_train, self.y_train)
+api.add_resource(Predict, '/predict')
 
-        self.logreg = LogisticRegression()
-        self.logreg.fit(self.X_train, self.y_train)
+# Load Titanic dataset
+titanic_data = sns.load_dataset('titanic')
 
-    def runDecisionTree(self):
-        if self.dt is None:
-            print("Decision Tree model is not initialized. Please run initTitanic() first.")
-            return
-        y_pred_dt = self.dt.predict(self.X_test)
-        accuracy_dt = accuracy_score(self.y_test, y_pred_dt)
-        print('Decision Tree Classifier Accuracy: {:.2%}'.format(accuracy_dt))
+# Preprocess the data
+titanic_data.drop(['alive', 'who', 'adult_male', 'class', 'embark_town', 'deck'], axis=1, inplace=True)
+titanic_data.dropna(inplace=True)
+titanic_data['sex'] = titanic_data['sex'].apply(lambda x: 1 if x == 'male' else 0)
+titanic_data['alone'] = titanic_data['alone'].apply(lambda x: 1 if x == True else 0)
 
-    def runLogisticRegression(self):
-        if self.logreg is None:
-            print("Logistic Regression model is not initialized. Please run initTitanic() first.")
-            return
-        y_pred_logreg = self.logreg.predict(self.X_test)
-        accuracy_logreg = accuracy_score(self.y_test, y_pred_logreg)
-        print('Logistic Regression Accuracy: {:.2%}'.format(accuracy_logreg))
+# Encode categorical variables
+enc = OneHotEncoder(handle_unknown='ignore')
+enc.fit(titanic_data[['embarked']])
+onehot = enc.transform(titanic_data[['embarked']]).toarray()
+cols = ['embarked_' + val for val in enc.categories_[0]]
+titanic_data[cols] = pd.DataFrame(onehot)
+titanic_data.drop(['embarked'], axis=1, inplace=True)
+titanic_data.dropna(inplace=True)
 
-def initTitanic():
-    global titanic_regression
-    titanic_regression = TitanicRegression()
-    titanic_regression.initTitanic()
-    titanic_regression.runDecisionTree()
-    titanic_regression.runLogisticRegression()
+# Split the data into features and target
+X = titanic_data.drop('survived', axis=1)
+y = titanic_data['survived']
 
-def predictSurvival(passenger):
-    passenger_df = pd.DataFrame(passenger, index=[0])   
-    passenger_df.drop(['name'], axis=1, inplace=True)
-    passenger = passenger_df.copy()
+# Train the logistic regression model
+logreg = LogisticRegression()
+logreg.fit(X, y)
 
-    # Add missing columns and fill them with default values
-    missing_cols = set(titanic_regression.X_train.columns) - set(passenger.columns)
-    for col in missing_cols:
-        passenger[col] = 0
-
-    # Ensure the order of column in the passenger matches the order in the training data
-    passenger = passenger[titanic_regression.X_train.columns]
-
-    # Preprocess the passenger data
-    passenger = titanic_regression.encoder.transform(passenger)
-
-    predict = titanic_regression.logreg.predict(passenger)
-    return predict
-
-
-# Sample usage
 if __name__ == "__main__":
-    # Initialize the Titanic model
-    initTitanic()
-
-    # Predict the survival of a passenger
-    passenger = {
-        'name': ['John Mortensen'],
-        'pclass': [2],
-        'sex': ['male'],
-        'age': [64],
-        'sibsp': [1],
-        'parch': [1],
-        'fare': [16.00],
-        'embarked': ['S'],
-        'alone': [False]
-    }
-    print(predictSurvival(passenger))
+    app.run(debug=True)
