@@ -18,6 +18,7 @@ from api.stress import stress_api
 # database migrations
 from model.users import initUsers
 from model.players import initPlayers
+#from model.titanic import initTitanic
 
 # setup App pages
 from projects.projects import app_projects # Blueprint directory import projects definition
