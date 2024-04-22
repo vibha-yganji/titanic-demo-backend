@@ -10,6 +10,7 @@ import numpy as np
 
 
 class TitanicPredictor:
+    #Initializes the object titanic prediction
     def __init__(self):
         self.data = None
         self.encoder = None
@@ -24,7 +25,6 @@ class TitanicPredictor:
     def preprocess_data(self):
         if self.data is None:
             raise ValueError("Data not loaded. Call load_data() first.")
-        
         self.data.drop(['alive', 'who', 'adult_male', 'class', 'embark_town', 'deck'], axis=1, inplace=True)
         self.data.dropna(inplace=True)
         self.data['sex'] = self.data['sex'].apply(lambda x: 1 if x == 'male' else 0)
@@ -36,7 +36,7 @@ class TitanicPredictor:
         self.data[cols] = pd.DataFrame(onehot)
         self.data.drop(['embarked'], axis=1, inplace=True)
         self.data.dropna(inplace=True)
-        
+    # trains the titanic model
     def train_models(self):
         X = self.data.drop('survived', axis=1)
         y = self.data['survived']
