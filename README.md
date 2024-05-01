@@ -1,8 +1,9 @@
-# Flask Portfolio Starter
+# Titanic ML
 
-Use this project to create a Flask Server.
+This is my titanic predictor ML that I created where another teammate of mine edited it a few times. In this project I expanded upon the titanic predictor and created it in a way that organizes the the data and also gives your death percentage as well as your survival percentage
 
-GitHub link: https://github.com/nighthawkcoders/cpt
+This ML is meant to be used by all and different data is able to put in depending on the user and their characteristics.
+
 
 ## Getting Started
 
